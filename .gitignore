@@ -1,0 +1,21 @@
+# PyInstaller build artifacts
+dist/
+build/
+*.spec
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# User config local state (optional - keep config.json if template)
+*.tmp
+*.log
+
+# OS artifacts
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
