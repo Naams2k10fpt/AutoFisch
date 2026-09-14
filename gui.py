@@ -319,7 +319,16 @@ class MacroGUI:
             activebackground="#161824", activeforeground="#38BDF8", selectcolor="#0F172A",
             command=self._on_autocast_toggle
         )
-        cast_cb.grid(row=0, column=0, columnspan=2, sticky=tk.W, pady=(0, 2))
+        cast_cb.grid(row=0, column=0, sticky=tk.W, pady=(0, 2))
+
+        self.auto_shake_var = tk.BooleanVar(value=self.config.get('auto_shake', True))
+        shake_cb = tk.Checkbutton(
+            cast_frame, text="Tự động bấm Shake",
+            variable=self.auto_shake_var, font=("Segoe UI", 9), fg="#F1F5F9", bg="#161824",
+            activebackground="#161824", activeforeground="#38BDF8", selectcolor="#0F172A",
+            command=self._on_autoshake_toggle
+        )
+        shake_cb.grid(row=0, column=1, sticky=tk.W, padx=12, pady=(0, 2))
         
         tk.Label(cast_frame, text="Thời gian giữ chuột (giây):", font=("Segoe UI", 8), fg="#CBD5E1", bg="#161824").grid(row=1, column=0, sticky=tk.W, pady=1)
         self.cast_dur_var = tk.DoubleVar(value=self.config.get('cast_duration_sec', 0.5))
@@ -450,6 +459,11 @@ class MacroGUI:
                 self.toggle_btn.configure(text="TẮT BOT (F6)", bg="#DC2626", activebackground="#EF4444")
                 self.status_lbl.configure(text="Status: ⚡ ĐANG TỰ ĐỘNG CHƠI!", fg="#10B981")
                 self.info_lbl.configure(text="Bot đang tự động điều khiển giữ cá trong tâm bar...", fg="#34D399")
+            elif state == "SHAKING":
+                self._reset_action_boxes()
+                self.toggle_btn.configure(text="TẮT BOT (F6)", bg="#DC2626", activebackground="#EF4444")
+                self.status_lbl.configure(text="Status: 🎯 ĐANG BẤM SHAKE...", fg="#F59E0B")
+                self.info_lbl.configure(text="Đã phát hiện vòng tròn Shake, bot đang tự động nhấp chuột!", fg="#FBBF24")
             elif state == "CASTING":
                 self._reset_action_boxes()
                 self.toggle_btn.configure(text="TẮT BOT (F6)", bg="#DC2626", activebackground="#EF4444")
@@ -458,8 +472,8 @@ class MacroGUI:
             elif state == "STANDBY":
                 self._reset_action_boxes()
                 self.toggle_btn.configure(text="TẮT BOT (F6)", bg="#DC2626", activebackground="#EF4444")
-                self.status_lbl.configure(text="Status: 🐟 ĐANG CHỜ CÁ CẮN...", fg="#F59E0B")
-                self.info_lbl.configure(text="Hãy quăng cần câu xuống nước. Khi cá cắn câu, bot sẽ tự động chơi và lặp lại!", fg="#FBBF24")
+                self.status_lbl.configure(text="Status: 🐟 ĐANG CHỜ CÁ CẮN / SHAKE...", fg="#F59E0B")
+                self.info_lbl.configure(text="Hãy quăng cần câu xuống nước. Bot sẽ tự động Shake và giữ cá trong tâm!", fg="#FBBF24")
             else:
                 self._reset_action_boxes()
                 self.toggle_btn.configure(text="BẬT BOT (F6)", bg="#059669", activebackground="#10B981")
@@ -528,6 +542,12 @@ class MacroGUI:
     def _on_autocast_toggle(self):
         self.config['auto_cast'] = self.auto_cast_var.get()
         save_config(self.config)
+
+    def _on_autoshake_toggle(self):
+        self.config['auto_shake'] = self.auto_shake_var.get()
+        save_config(self.config)
+        st = "BẬT" if self.auto_shake_var.get() else "TẮT"
+        self._append_log(f"Auto Shake: {st}")
 
     def _on_cast_dur_change(self, val):
         self.config['cast_duration_sec'] = float(val)

@@ -10,7 +10,7 @@ import subprocess
 import threading
 import requests
 
-CURRENT_VERSION = "1.0.0"
+CURRENT_VERSION = "1.1.0"
 REPO_OWNER = "Naams2k10fpt"
 REPO_NAME = "AutoFisch"
 GITHUB_API_URL = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/releases/latest"

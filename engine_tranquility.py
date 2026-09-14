@@ -11,8 +11,9 @@ import time
 import threading
 import cv2
 import numpy as np
-from input_handler import robust_send_key
+from input_handler import robust_send_key, mouse_click_at
 from vision_utils import LANE_CONFIG, RED_NOTE_HSV, get_roblox_client_rect
+from shake_detector import ShakeDetector
 
 class TranquilityEngine:
     def __init__(self, config, log_fn=None, on_lane_hit_fn=None, on_state_fn=None):
@@ -20,6 +21,11 @@ class TranquilityEngine:
         self.log = log_fn or print
         self.on_lane_hit = on_lane_hit_fn
         self.on_state = on_state_fn
+        
+        # Shake detector
+        self.shake_detector = ShakeDetector()
+        self.last_shake_click = 0.0
+        self.shake_count_session = 0
         
         self.is_calibrated = False
         self.target_coords = {}
@@ -137,14 +143,42 @@ class TranquilityEngine:
             now = time.perf_counter()
             update_fps_fn()
             
-            # STANDBY: Search for rings
+            # STANDBY: Search for rings or Shake
             if not self.is_calibrated or self.capture_roi is None:
                 found = self.calibrate(sct, silent=True)
                 if not found:
-                    time.sleep(0.12)
+                    if self.config.get('auto_shake', True) and (now - self.last_shake_click > 0.18):
+                        roblox_info = get_roblox_client_rect()
+                        if roblox_info:
+                            _, rx, ry, rw, rh, title = roblox_info
+                        else:
+                            mon = [m for m in sct.monitors if m.get('is_primary')][0]
+                            rx, ry, rw, rh = mon['left'], mon['top'], mon['width'], mon['height']
+                        
+                        shake_roi = {'left': rx, 'top': ry, 'width': rw, 'height': rh}
+                        try:
+                            shake_raw = sct.grab(shake_roi)
+                            shake_frame = np.array(shake_raw)[:, :, :3]
+                            found_shake, sx, sy, score = self.shake_detector.detect(
+                                shake_frame, client_rect=(rx, ry, rw, rh), threshold=0.62
+                            )
+                            if found_shake:
+                                self.shake_count_session += 1
+                                self.log("SHAKE", f"🎯 Đã phát hiện nút SHAKE ({self.shake_count_session}) tại ({sx}, {sy}) -> Bấm!")
+                                if self.on_state:
+                                    self.on_state("SHAKING")
+                                mouse_click_at(sx, sy, click_delay=0.03)
+                                self.last_shake_click = time.perf_counter()
+                                time.sleep(0.12)
+                                continue
+                        except Exception:
+                            pass
+
+                    time.sleep(0.06)
                     continue
                 
                 missing_rings_streak = 0
+                self.shake_count_session = 0
                 session_hits_start = self.total_hits
                 if self.on_state:
                     self.on_state("PLAYING")

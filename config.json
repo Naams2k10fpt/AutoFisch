@@ -15,5 +15,6 @@
     "auto_cast": true,
     "cast_duration_sec": 0.25,
     "cast_delay_sec": 0.5,
-    "beep_sound": true
+    "beep_sound": true,
+    "auto_shake": true
 }

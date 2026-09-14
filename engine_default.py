@@ -11,8 +11,9 @@ Features:
 
 import time
 import numpy as np
-from input_handler import mouse_down_left, mouse_up_left
+from input_handler import mouse_down_left, mouse_up_left, mouse_click_at
 from vision_utils import get_roblox_client_rect
+from shake_detector import ShakeDetector
 
 class DefaultRodEngine:
     def __init__(self, config, log_fn=None, on_bar_update_fn=None, on_state_fn=None):
@@ -20,6 +21,11 @@ class DefaultRodEngine:
         self.log = log_fn or print
         self.on_bar_update = on_bar_update_fn
         self.on_state = on_state_fn
+        
+        # Shake detector
+        self.shake_detector = ShakeDetector()
+        self.last_shake_click = 0.0
+        self.shake_count_session = 0
         
         # Hover & mouse state
         self.is_mouse_down = False
@@ -62,7 +68,7 @@ class DefaultRodEngine:
             
             roi = {'left': track_left, 'top': track_top, 'width': track_width, 'height': track_height}
             
-            # ================= STATE 1: STANDBY =================
+            # ================= STATE 1: STANDBY / AUTO SHAKE =================
             if not minigame_active:
                 prev_bar_c = None
                 prev_fish_x = None
@@ -70,6 +76,7 @@ class DefaultRodEngine:
                 v_bar = 0.0
                 v_fish = 0.0
                 
+                # Check Bar Minigame first
                 try:
                     raw = sct.grab(roi)
                     frame = np.array(raw)[:, :, :3]
@@ -89,12 +96,36 @@ class DefaultRodEngine:
                     if 80 <= bar_w <= int(track_width * 0.88):
                         minigame_active = True
                         missing_bar_streak = 0
+                        self.shake_count_session = 0
                         self.log("GAME", f"🎮 PHÁT HIỆN MINIGAME! Độ dài bar tự nhận diện: {bar_w}px. Bắt đầu tự động giữ tâm...")
                         if self.on_state:
                             self.on_state("PLAYING")
                 
-                if not minigame_active:
-                    time.sleep(0.08)
+                if minigame_active:
+                    pass
+                else:
+                    # If minigame is not active yet, check for SHAKE circle
+                    if self.config.get('auto_shake', True) and (now - self.last_shake_click > 0.18):
+                        shake_roi = {'left': rx, 'top': ry, 'width': rw, 'height': rh}
+                        try:
+                            shake_raw = sct.grab(shake_roi)
+                            shake_frame = np.array(shake_raw)[:, :, :3]
+                            found_shake, sx, sy, score = self.shake_detector.detect(
+                                shake_frame, client_rect=(rx, ry, rw, rh), threshold=0.62
+                            )
+                            if found_shake:
+                                self.shake_count_session += 1
+                                self.log("SHAKE", f"🎯 Đã phát hiện nút SHAKE ({self.shake_count_session}) tại ({sx}, {sy}) -> Bấm!")
+                                if self.on_state:
+                                    self.on_state("SHAKING")
+                                mouse_click_at(sx, sy, click_delay=0.03)
+                                self.last_shake_click = time.perf_counter()
+                                time.sleep(0.12)
+                                continue
+                        except Exception:
+                            pass
+                    
+                    time.sleep(0.04)
                     continue
 
             # ================= STATE 2: PLAYING =================

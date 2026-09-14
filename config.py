@@ -29,6 +29,7 @@ DEFAULT_CONFIG = {
     "timing_offset_px": 0,           # Rhythm timing offset (-px = early, +px = late)
     "trigger_threshold": 12,
     "auto_cast": True,
+    "auto_shake": True,              # Automatically click Shake buttons before minigame
     "cast_duration_sec": 0.5,
     "cast_delay_sec": 1.2,
     "beep_sound": True

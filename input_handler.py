@@ -155,3 +155,19 @@ def robust_mouse_hold(duration: float = 0.5):
     mouse_down_left()
     time.sleep(duration)
     mouse_up_left()
+
+def mouse_click_at(x: int, y: int, click_delay: float = 0.03):
+    """Moves mouse to (x, y) and performs a clean left click."""
+    try:
+        user32.SetCursorPos(int(x), int(y))
+    except Exception:
+        pass
+    try:
+        pydirectinput.moveTo(int(x), int(y))
+    except Exception:
+        pass
+    user32.SetCursorPos(int(x), int(y))
+    mouse_down_left()
+    time.sleep(click_delay)
+    mouse_up_left()
+
