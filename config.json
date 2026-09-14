@@ -1,0 +1,19 @@
+{
+    "hotkey_toggle": "f6",
+    "hotkey_calibrate": "f7",
+    "hotkey_exit": "f8",
+    "rod_mode": "default",
+    "bar_deadband_px": 10,
+    "inertia_lead_sec": 0.15,
+    "fish_lead_sec": 0.1,
+    "spam_pulse_ms": 50,
+    "spam_enabled": true,
+    "cooldown_ms": 160,
+    "key_duration_ms": 35,
+    "timing_offset_px": 0,
+    "trigger_threshold": 12,
+    "auto_cast": true,
+    "cast_duration_sec": 0.25,
+    "cast_delay_sec": 0.5,
+    "beep_sound": true
+}
