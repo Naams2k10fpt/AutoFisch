@@ -9,9 +9,18 @@ __pycache__/
 *$py.class
 .pytest_cache/
 
-# User config local state (optional - keep config.json if template)
+# Local helper scripts & batch files
+*.bat
+_update*.bat
+
+# Temporary media & scratch
+scratch/
+.tempmediaStorage/
 *.tmp
 *.log
+
+# Intermediate images (keep app.ico)
+app.png
 
 # OS artifacts
 Thumbs.db
