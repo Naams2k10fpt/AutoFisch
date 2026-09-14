@@ -3,12 +3,15 @@ Modern Dark UI for Fisch Multi-Rod Auto Fishing Bot.
 Built with Python Tkinter.
 """
 
+import os
+import threading
 import tkinter as tk
 from tkinter import messagebox, ttk
 import keyboard
 import mss
 import numpy as np
 
+import updater
 from config import load_config, save_config
 from vision_utils import LANE_CONFIG, get_roblox_client_rect
 from macro_engine import MacroEngine
@@ -47,22 +50,45 @@ class MacroGUI:
         
         self.lane_labels = {}
         self.lane_reset_timers = {}
+        self.update_info = None
         
         self._build_ui()
         self._register_hotkeys()
         self._start_stats_updater()
         self._switch_mode_view(self.config.get('rod_mode', 'default'))
+        self._check_for_updates()
 
     def _build_ui(self):
         # Header banner
         header_frame = tk.Frame(self.root, bg="#1A1C29", height=65)
         header_frame.pack(fill=tk.X, side=tk.TOP)
         
-        title = tk.Label(header_frame, text="AUTO FISCH", font=("Segoe UI", 16, "bold"), fg="#38BDF8", bg="#1A1C29")
-        title.pack(anchor=tk.W, padx=20, pady=(8, 0))
+        left_header = tk.Frame(header_frame, bg="#1A1C29")
+        left_header.pack(side=tk.LEFT, padx=20, pady=8)
+
+        title = tk.Label(left_header, text="AUTO FISCH", font=("Segoe UI", 16, "bold"), fg="#38BDF8", bg="#1A1C29")
+        title.pack(anchor=tk.W)
         
-        subtitle = tk.Label(header_frame, text="Naams", font=("Segoe UI", 9), fg="#94A3B8", bg="#1A1C29")
-        subtitle.pack(anchor=tk.W, padx=20, pady=(0, 8))
+        subtitle = tk.Label(left_header, text="Naams", font=("Segoe UI", 9), fg="#94A3B8", bg="#1A1C29")
+        subtitle.pack(anchor=tk.W)
+
+        right_header = tk.Frame(header_frame, bg="#1A1C29")
+        right_header.pack(side=tk.RIGHT, padx=20, pady=8)
+
+        self.ver_label = tk.Label(
+            right_header, text=f"v{updater.CURRENT_VERSION}",
+            font=("Segoe UI", 9, "bold"), fg="#94A3B8", bg="#1E293B",
+            padx=8, pady=2
+        )
+        self.ver_label.pack(side=tk.RIGHT)
+
+        self.update_btn = tk.Button(
+            right_header, text="⭐ CẬP NHẬT",
+            font=("Segoe UI", 9, "bold"), fg="#FFFFFF", bg="#0284C7",
+            activebackground="#0369A1", activeforeground="#FFFFFF",
+            relief=tk.FLAT, cursor="hand2", padx=8, pady=2,
+            command=self._start_update_process
+        )
 
         # Configure dark styling for ttk Combobox
         style = ttk.Style()
@@ -554,3 +580,95 @@ class MacroGUI:
     def _exit_app(self):
         self.engine.stop()
         self.root.destroy()
+
+    def _check_for_updates(self):
+        def on_result(has_update, latest_tag, download_url, body):
+            if has_update and download_url:
+                try:
+                    self.root.after(0, lambda: self._show_update_available(latest_tag, download_url, body))
+                except Exception:
+                    pass
+
+        updater.check_for_update_async(on_result)
+
+    def _show_update_available(self, latest_tag, download_url, body):
+        self.update_info = (latest_tag, download_url)
+        self.update_btn.config(text=f"⭐ CẬP NHẬT ({latest_tag})")
+        self.update_btn.pack(side=tk.RIGHT, padx=(0, 8))
+        self._append_log(f"🔔 Phát hiện bản mới {latest_tag}! Bấm nút '⭐ CẬP NHẬT' ở góc phải để update.")
+
+    def _start_update_process(self):
+        if not self.update_info:
+            return
+        latest_tag, download_url = self.update_info
+
+        if not messagebox.askyesno(
+            "Cập nhật AutoFisch",
+            f"Phát hiện phiên bản mới: {latest_tag}\n\n"
+            "Bạn có muốn tải về và tự động cập nhật ngay bây giờ không?"
+        ):
+            return
+
+        dlg = tk.Toplevel(self.root)
+        dlg.title("Cập nhật AutoFisch")
+        dlg.geometry("380x160")
+        dlg.resizable(False, False)
+        dlg.configure(bg="#12131C")
+        dlg.transient(self.root)
+        dlg.grab_set()
+
+        self.root.update_idletasks()
+        rx = self.root.winfo_x()
+        ry = self.root.winfo_y()
+        rw = self.root.winfo_width()
+        rh = self.root.winfo_height()
+        dlg.geometry(f"380x160+{rx + (rw - 380)//2}+{ry + (rh - 160)//2}")
+
+        tk.Label(
+            dlg, text=f"Đang tải bản cập nhật {latest_tag}...",
+            font=("Segoe UI", 11, "bold"), fg="#38BDF8", bg="#12131C"
+        ).pack(pady=(18, 8))
+
+        style = ttk.Style()
+        style.theme_use('clam')
+        progress = ttk.Progressbar(dlg, orient=tk.HORIZONTAL, length=320, mode='determinate')
+        progress.pack(pady=6)
+
+        lbl_info = tk.Label(
+            dlg, text="Đang kết nối...",
+            font=("Segoe UI", 9), fg="#94A3B8", bg="#12131C"
+        )
+        lbl_info.pack(pady=4)
+
+        def progress_cb(percent, downloaded, total):
+            def _update():
+                progress['value'] = percent
+                dl_mb = downloaded / (1024 * 1024)
+                tot_mb = total / (1024 * 1024) if total > 0 else 0
+                lbl_info.config(text=f"{percent:.1f}% ({dl_mb:.1f} MB / {tot_mb:.1f} MB)")
+            try:
+                self.root.after(0, _update)
+            except Exception:
+                pass
+
+        def run_download():
+            new_file = updater.download_update_sync(download_url, progress_cb)
+            if new_file and os.path.exists(new_file):
+                def _done():
+                    lbl_info.config(text="Tải xong! Tự khởi động lại sau 2 giây...", fg="#34D399")
+                    dlg.after(1500, lambda: updater.apply_update_and_restart(new_file))
+                try:
+                    self.root.after(0, _done)
+                except Exception:
+                    pass
+            else:
+                def _fail():
+                    messagebox.showerror("Lỗi Cập Nhật", "Không thể tải file cập nhật. Vui lòng thử lại sau!")
+                    dlg.destroy()
+                try:
+                    self.root.after(0, _fail)
+                except Exception:
+                    pass
+
+        threading.Thread(target=run_download, daemon=True).start()
+
